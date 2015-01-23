@@ -1,0 +1,155 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<script src="jquery-1.11.2.min.js"></script>
+		<script type="text/javascript">
+
+		var datasets = [];
+		var dataset = null;
+		var refines = [];
+
+		function api_start() {
+
+	  		// Cleaning
+	  		$( "#widget" ).empty( );
+	  		dataset = null;
+
+	  		// Get the current dataset
+	  		var datasetid = $( "#dataset" ).val();
+	  		$.each( datasets, function( dataset_key, dataset_val ) {
+
+		  		if(datasetid == dataset_val.datasetid) {
+
+		  			dataset = dataset_val;
+		  		}
+
+		  	});
+
+	  		// Construct GET parameters for facets in each field facetable
+	  		var get_params = "";
+		  	$.each( dataset.fields, function( field_key, field_val ) {
+
+				if(field_val.annotations) {
+
+			  		$.each( field_val.annotations, function( annotation_key, annotation_val ) {
+
+			  			if(annotation_val.name == "facet") {
+
+				  			get_params += "&facet="+ field_val.name;
+				  		}
+
+				  	});
+
+			  	}
+
+		  	});			
+		  	var key;
+		  	for (key in refines) {
+			    if (refines.hasOwnProperty(key)) {
+			        get_params += "&refine."+key+"="+ refines[key];
+			    }
+			}
+
+		  	// Get the datas
+			$.getJSON( "http://public.opendatasoft.com/api/records/1.0/search?dataset=" + datasetid + "&rows=10" + get_params, function( records_result ) {
+
+				if(records_result.facet_groups){
+
+					$.each( records_result.facet_groups, function( facet_group_key, facet_group_val ) {
+
+						var facets = [];
+
+						$.each( facet_group_val.facets, function( facet_key, facet_val ) {
+
+							option = "<option value='" + facet_val.name + "'";
+
+							if(refines[facet_group_val.name] == facet_val.name) {
+
+								option += ' selected="selected"';
+							}
+
+							option += ">" + facet_val.name + " (" + facet_val.count + ")</option>";
+
+					  		facets.push( option );
+
+					  	});
+
+					  	$( "#widget" ).append(
+
+					  		facet_group_val.name + " : ", 
+
+					  		$( "<select/>", {
+					    		"class": "facet",
+					    		"name": facet_group_val.name,
+					   			html: "<option value=''></option>" + facets.join( "" )	 
+					   		})
+
+					  	);
+
+				  	});
+
+				  	$( "select.facet" ).change(function() {
+
+				  		$( "select.facet").each(function( index ) {
+
+							if($( this ).val()) {
+
+								refines[$( this ).attr("name")] = $( this ).val();
+							} else if (refines[$( this ).attr("name")]) {
+
+								delete refines[$( this ).attr("name")];
+							} 
+						});
+
+						api_start();
+
+					});
+
+				}
+
+				if(records_result){
+
+					$( "#result" ).html(JSON.stringify(records_result));
+
+				}
+
+			});
+		}	
+
+	$(document).ready(function() {
+
+		
+
+		$.getJSON( "http://public.opendatasoft.com/api/datasets/1.0/search/?rows=200&sort=title", function( datasets_result ) {
+
+			var datasets_select = [];
+
+			datasets = datasets_result.datasets;
+
+		  	$.each( datasets, function( dataset_key, dataset_val ) {
+
+		  		datasets_select.push( "<option value='" + dataset_val.datasetid + "'>" + dataset_val.metas.title + "</option>" );
+
+		  	});
+		 
+		 	// Construct dataset selector
+		  	$( "<select/>", {
+
+		    	"class": "dataset",
+		    	"id": "dataset",
+		   		html: datasets_select.join( "" )		 
+		   		  		
+		  	}).appendTo( "#params" ).change(function() {
+
+		  		api_start();
+
+		  	}).change();
+
+		});
+
+	});
+
+		</script>
+	</head>
+	<body><div id="params"></div><div id="widget"></div><code id="result"></code></body>
+</html>
